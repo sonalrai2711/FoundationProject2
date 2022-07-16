@@ -18,9 +18,9 @@ import matplotlib.pyplot as plt
 
 def season_calc(month):
     if month in [6, 7, 8, 9, 10]:
-        return "summer"
+        return "Summer"
     else:
-        return "winter"
+        return "Winter"
 
 
 def get_holidays(dt, holidays):
@@ -35,7 +35,6 @@ def getAttributes(sdate, edate):
     # edate = date(2022, 5, 31)  # end date
 
     sdge_final_data = pd.read_csv('merged_sdge_data.csv')
-    sdge_final_data['MA12'] = sdge_final_data['SDGE'].rolling(12).mean()
     delta = edate - sdate  # as timedelta
     datelist = []
     for i in range(delta.days + 1):
@@ -50,6 +49,7 @@ def getAttributes(sdate, edate):
     future_df['Date'] = pd.to_datetime(future_df['Date'])
     future_df['Year'] = future_df.Date.dt.year
     future_df['Month'] = future_df.Date.dt.month
+    future_df['Month_Name'] = future_df.Date.dt.month_name()
     future_df['Day'] = future_df.Date.dt.day
     future_df['Week_day'] = future_df.Date.dt.weekday.map(weeknames)
     future_df['Season'] = future_df.Date.dt.month.apply(season_calc)
@@ -82,11 +82,8 @@ def getAttributes(sdate, edate):
     prediction = predictor(future_df)
     total_holidays = future_df[(future_df['Holiday'] == 1)].loc[:,'Holiday'].count()
     nonworking_days = future_df[(future_df['Non_working'] == 'non-working')].loc[:,'Non_working'].count()
-    htmls = ''
-    htmls += '<tr><td>'+str(future_df['Month'][0])+'</td>'
-    htmls += '<td>'+future_df['Season'][0]+'</td>'
-    htmls += '<td>'+str(total_holidays)+'</td><td>'+str(nonworking_days)+'</td>'
-    htmls += '<td>'+str(prediction)+'</td></tr>'
+    htmls = pd.DataFrame({'   Month   ': future_df['Month_Name'][0],'   Season   ': future_df['Season'][0],'   Holidays   ': str(total_holidays), '   Non Working Days   ': str(nonworking_days), '   Prediction   ' : str(prediction)}, index = ['0'])
+        
     return htmls
 
 
@@ -114,9 +111,19 @@ end_date = st.sidebar.date_input('Select the End Date', datetime.date(2022, 5, 3
 # text over upload button "Upload Image"
 
 if st.sidebar.button("Predict"):
-    st.write("Energy consumption Prediction between the date range ", start_date, " and ", end_date, " range: " )
+    st.write("Energy consumption Prediction between the date range ", start_date, " and ", end_date, " : " )
     #st.write(end_date)
-
+    
+    # CSS to inject contained in a string
+    hide_table_row_index = """
+            <style>
+            tbody th {display:none}
+            .blank {display:none}
+            </style>
+            """
+    # Inject CSS with Markdown
+    st.markdown(hide_table_row_index, unsafe_allow_html=True)
+    
     if start_date is not None and end_date is not None:
         start_month = datetime.datetime.strptime(str(start_date), "%Y-%m-%d")
         end_month = datetime.datetime.strptime(str(end_date), "%Y-%m-%d")
@@ -125,14 +132,14 @@ if st.sidebar.button("Predict"):
             '<th>Prediction</th></tr>'
         if start_month.month == end_month.month:
             future_df = getAttributes(start_date, end_date)
-            html += future_df
+            st.dataframe(future_df.style.highlight_max(axis=0), width=850)
+            #html += future_df
         else:
             target_year = start_month.year
             for m in range(start_month.month, end_month.month+1):
                 new_start_date = date(target_year, m, 1)
                 new_end_date = date(target_year, m, 30)
                 future_df = getAttributes(new_start_date, new_end_date)
-                html += future_df
+                st.dataframe(future_df.style.highlight_max(axis=0),  width=850)
 
-        html += '</table>'
-        st.components.v1.html(html)
+       
